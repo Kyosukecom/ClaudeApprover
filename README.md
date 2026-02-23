@@ -55,7 +55,7 @@ swift build
 ```bash
 mkdir -p ~/.claude/hooks
 cp hook/menubar-approval.py ~/.claude/hooks/menubar-approval.py
-chmod +x ~/.claude/hooks/menubar-approval.py
+cp hook/menubar-dismiss.py ~/.claude/hooks/menubar-dismiss.py
 ```
 
 ### 3. Claude Code にフックを登録
@@ -76,14 +76,41 @@ chmod +x ~/.claude/hooks/menubar-approval.py
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/menubar-dismiss.py",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }
 ```
 
-> **既に `hooks` セクションがある場合**: `PreToolUse` 配列にエントリを追加してください。
+> **既に `hooks` セクションがある場合**: `PreToolUse` / `PostToolUse` 配列にエントリを追加してください。
 
-### 4. Ollama（オプション）
+### 4. 常駐起動の設定（推奨）
+
+LaunchAgent を登録すると、ログイン時に自動起動＋クラッシュ時に自動再起動されます:
+
+```bash
+# plist をコピーして、パスを自分のユーザー名に書き換える
+cp com.claudeapprover.agent.plist ~/Library/LaunchAgents/
+sed -i '' "s|YOUR_USERNAME|$(whoami)|g" ~/Library/LaunchAgents/com.claudeapprover.agent.plist
+
+# 登録＆起動
+launchctl load ~/Library/LaunchAgents/com.claudeapprover.agent.plist
+```
+
+> LaunchAgent を設定しない場合でも、フックが初回実行時に ClaudeApprover を自動起動します。ただしプロセスが落ちた場合は次のフック実行まで復帰しません。
+
+### 5. Ollama（オプション）
 
 Claude の英語説明を日本語に翻訳したい場合:
 
@@ -94,7 +121,7 @@ ollama pull qwen2.5:1.5b
 
 Ollama がなくても動作します（翻訳がスキップされ、英語のまま表示されます）。
 
-### 5. 動作確認
+### 6. 動作確認
 
 新しい Claude Code セッションを開始して、`git push` 等のコマンドが実行されるとパネルが表示されます。
 ClaudeApprover はフックが自動的に起動するので、手動で起動する必要はありません。

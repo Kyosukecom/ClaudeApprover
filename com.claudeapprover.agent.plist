@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.claudeapprover.agent</string>
+    <key>ProgramArguments</key>
+    <array>
+        <!-- Update this path to match your build location -->
+        <string>/Users/YOUR_USERNAME/Projects/ClaudeApprover/.build/debug/ClaudeApprover</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/ClaudeApprover.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/ClaudeApprover.stderr.log</string>
+</dict>
+</plist>
