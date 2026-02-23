@@ -19,7 +19,7 @@ import urllib.error
 
 APPROVER_URL = "http://localhost:19482/api/notify"
 APPROVER_HEALTH_URL = "http://localhost:19482/api/health"
-APPROVER_BINARY = os.path.expanduser("~/Projects/ClaudeApprover/.build/debug/ClaudeApprover")
+APPROVER_BINARY = os.path.expanduser("~/bin/ClaudeApprover")
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "qwen2.5:1.5b"
 OLLAMA_TIMEOUT = 8
