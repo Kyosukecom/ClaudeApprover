@@ -4,7 +4,6 @@ import SwiftUI
 @Observable
 final class ReviewManager {
     var notifications: [NotificationItem] = []
-    /// Set to true to programmatically open the popover
     var shouldShowPopover = false
 
     var notificationCount: Int { notifications.count }
@@ -14,10 +13,18 @@ final class ReviewManager {
 
     @MainActor
     func addNotification(request: ReviewRequest) {
-        // Replace — always show only the latest one
-        notifications = [NotificationItem(request: request)]
+        let item = NotificationItem(request: request)
+        notifications.append(item)
         shouldShowPopover = true
-        // No auto-dismiss timer — panel stays until PostToolUse dismisses it
+    }
+
+    /// Dismiss by tool_use_id (from PostToolUse hook)
+    @MainActor
+    func dismiss(toolUseId: String) {
+        notifications.removeAll { $0.request.toolUseId == toolUseId }
+        if notifications.isEmpty {
+            shouldShowPopover = false
+        }
     }
 
     @MainActor

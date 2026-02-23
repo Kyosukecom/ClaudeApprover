@@ -3,10 +3,48 @@ import SwiftUI
 struct ReviewPopoverView: View {
     let manager: ReviewManager
 
+    private var sortedNotifications: [NotificationItem] {
+        manager.notifications.sorted { a, b in
+            // High risk first, then by time (newest first)
+            if a.request.isHighRisk != b.request.isHighRisk { return a.request.isHighRisk }
+            return a.receivedAt > b.receivedAt
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            if let item = manager.notifications.first {
-                NotificationItemView(item: item, manager: manager)
+            if manager.hasNotifications {
+                // Header with count
+                HStack {
+                    Text("承認待ち")
+                        .font(.headline)
+                    Text("(\(manager.notificationCount))")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button {
+                        manager.dismissAll()
+                    } label: {
+                        Text("全て閉じる")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+
+                Divider()
+
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(sortedNotifications) { item in
+                            NotificationItemView(item: item, manager: manager)
+                            Divider()
+                        }
+                    }
+                }
+                .frame(maxHeight: 500)
             } else {
                 VStack(spacing: 8) {
                     Image(systemName: "checkmark.shield")
@@ -19,7 +57,7 @@ struct ReviewPopoverView: View {
                 .padding(32)
             }
         }
-        .frame(width: 400)
+        .frame(width: 420)
     }
 }
 
@@ -103,18 +141,29 @@ struct NotificationItemView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
-            // Acknowledge button — dismisses the notification
-            Button {
-                manager.dismissAll()
-            } label: {
-                Text("確認OK")
-                    .frame(maxWidth: .infinity)
+            // Session ID + command + dismiss button
+            HStack {
+                if let sid = item.request.sessionId, !sid.isEmpty {
+                    Text("Session: \(String(sid.prefix(8)))")
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                }
+
+                Spacer()
+
+                Button {
+                    manager.dismiss(id: item.id)
+                } label: {
+                    Text("確認OK")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(item.request.isHighRisk ? .red : .accentColor)
+                .controlSize(.small)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(item.request.isHighRisk ? .red : .accentColor)
-            .controlSize(.regular)
         }
-        .padding(16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
     // MARK: - Risk visuals

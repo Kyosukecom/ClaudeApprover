@@ -104,10 +104,22 @@ final class ReviewServer {
             return
         }
 
-        // Route: POST /api/dismiss — tool was approved/executed, dismiss notification
+        // Route: POST /api/dismiss — tool was approved/executed, dismiss matching notification
         if method == "POST" && path == "/api/dismiss" {
+            var toolUseId: String?
+            if let bodyRange = raw.range(of: "\r\n\r\n") {
+                let bodyString = String(raw[bodyRange.upperBound...])
+                if let bodyData = bodyString.data(using: .utf8),
+                   let json = try? JSONSerialization.jsonObject(with: bodyData) as? [String: Any] {
+                    toolUseId = json["tool_use_id"] as? String
+                }
+            }
             Task { @MainActor in
-                self.manager.dismissAll()
+                if let id = toolUseId, !id.isEmpty {
+                    self.manager.dismiss(toolUseId: id)
+                } else {
+                    self.manager.dismissAll()
+                }
             }
             sendResponse(connection: connection, status: 200, body: #"{"status":"ok"}"#)
             return

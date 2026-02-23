@@ -462,6 +462,7 @@ def notify_approver(
     tool_name: str, tool_input: dict, summary: str,
     risk_level: str, risk_action: str, risk_description: str,
     claude_description: str, context: str,
+    tool_use_id: str, session_id: str,
 ) -> bool:
     """Send notification to ClaudeApprover (fire-and-forget)."""
     payload = json.dumps({
@@ -473,6 +474,8 @@ def notify_approver(
         "risk_description": risk_description,
         "claude_description": claude_description,
         "context": context,
+        "tool_use_id": tool_use_id,
+        "session_id": session_id,
     }).encode()
     req = urllib.request.Request(APPROVER_URL, data=payload, headers={"Content-Type": "application/json"})
     try:
@@ -493,6 +496,8 @@ def main():
 
     tool_name = hook_input.get("tool_name", "")
     tool_input = hook_input.get("tool_input", {})
+    tool_use_id = hook_input.get("tool_use_id", "")
+    session_id = hook_input.get("session_id", "")
 
     # Claude's own description of what it's doing (available for Bash)
     claude_description = tool_input.get("description", "")
@@ -526,6 +531,7 @@ def main():
         tool_name, tool_input, summary,
         risk_level, risk_action, risk_description,
         claude_desc_ja, context,
+        tool_use_id, session_id,
     )
     sys.exit(0)
 

@@ -11,6 +11,8 @@ struct ReviewRequest: Codable, Identifiable {
     let riskDescription: String?
     let claudeDescription: String?
     let context: String?
+    let toolUseId: String?
+    let sessionId: String?
 
     var isHighRisk: Bool { riskLevel == "high" }
     var isMediumRisk: Bool { riskLevel == "medium" }
@@ -24,6 +26,8 @@ struct ReviewRequest: Codable, Identifiable {
         case riskDescription = "risk_description"
         case claudeDescription = "claude_description"
         case context
+        case toolUseId = "tool_use_id"
+        case sessionId = "session_id"
     }
 
     init(from decoder: Decoder) throws {
@@ -38,9 +42,11 @@ struct ReviewRequest: Codable, Identifiable {
         self.riskDescription = try container.decodeIfPresent(String.self, forKey: .riskDescription)
         self.claudeDescription = try container.decodeIfPresent(String.self, forKey: .claudeDescription)
         self.context = try container.decodeIfPresent(String.self, forKey: .context)
+        self.toolUseId = try container.decodeIfPresent(String.self, forKey: .toolUseId)
+        self.sessionId = try container.decodeIfPresent(String.self, forKey: .sessionId)
     }
 
-    init(id: UUID = UUID(), toolName: String, toolInput: [String: AnyCodable], summary: String, timestamp: Date = Date(), riskLevel: String? = nil, riskAction: String? = nil, riskDescription: String? = nil, claudeDescription: String? = nil, context: String? = nil) {
+    init(id: UUID = UUID(), toolName: String, toolInput: [String: AnyCodable], summary: String, timestamp: Date = Date(), riskLevel: String? = nil, riskAction: String? = nil, riskDescription: String? = nil, claudeDescription: String? = nil, context: String? = nil, toolUseId: String? = nil, sessionId: String? = nil) {
         self.id = id
         self.toolName = toolName
         self.toolInput = toolInput
@@ -51,6 +57,8 @@ struct ReviewRequest: Codable, Identifiable {
         self.riskDescription = riskDescription
         self.claudeDescription = claudeDescription
         self.context = context
+        self.toolUseId = toolUseId
+        self.sessionId = sessionId
     }
 }
 
