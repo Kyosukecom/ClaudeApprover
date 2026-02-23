@@ -104,6 +104,15 @@ final class ReviewServer {
             return
         }
 
+        // Route: POST /api/dismiss — tool was approved/executed, dismiss notification
+        if method == "POST" && path == "/api/dismiss" {
+            Task { @MainActor in
+                self.manager.dismissAll()
+            }
+            sendResponse(connection: connection, status: 200, body: #"{"status":"ok"}"#)
+            return
+        }
+
         // Route: GET /api/health
         if method == "GET" && path == "/api/health" {
             sendResponse(connection: connection, status: 200, body: #"{"status":"ok"}"#)

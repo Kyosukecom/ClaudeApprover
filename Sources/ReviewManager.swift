@@ -12,24 +12,12 @@ final class ReviewManager {
     var hasHighRisk: Bool { notifications.contains { $0.request.isHighRisk } }
     var hasMediumRisk: Bool { notifications.contains { $0.request.isMediumRisk } }
 
-    /// Auto-dismiss interval (seconds). High risk stays longer.
-    private let dismissDelay: TimeInterval = 15
-
     @MainActor
     func addNotification(request: ReviewRequest) {
         // Replace — always show only the latest one
         notifications = [NotificationItem(request: request)]
         shouldShowPopover = true
-
-        // Schedule auto-dismiss
-        let itemId = notifications[0].id
-        let delay = request.isHighRisk ? dismissDelay * 2 : dismissDelay
-        Task {
-            try? await Task.sleep(for: .seconds(delay))
-            await MainActor.run {
-                self.dismiss(id: itemId)
-            }
-        }
+        // No auto-dismiss timer — panel stays until PostToolUse dismisses it
     }
 
     @MainActor
