@@ -81,11 +81,27 @@ struct NotificationItemView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
-            // Command detail (collapsed)
-            Text(toolDetail)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.tertiary)
-                .lineLimit(2)
+            // Context: what exactly will be affected (commits, files, etc.)
+            if let ctx = item.request.context, !ctx.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .font(.caption2)
+                        Text("対象の詳細")
+                            .font(.caption2.weight(.semibold))
+                    }
+                    .foregroundStyle(.secondary)
+
+                    Text(ctx)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.secondary.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
 
             // Acknowledge button — dismisses the notification
             Button {

@@ -10,6 +10,7 @@ struct ReviewRequest: Codable, Identifiable {
     let riskAction: String?
     let riskDescription: String?
     let claudeDescription: String?
+    let context: String?
 
     var isHighRisk: Bool { riskLevel == "high" }
     var isMediumRisk: Bool { riskLevel == "medium" }
@@ -22,6 +23,7 @@ struct ReviewRequest: Codable, Identifiable {
         case riskAction = "risk_action"
         case riskDescription = "risk_description"
         case claudeDescription = "claude_description"
+        case context
     }
 
     init(from decoder: Decoder) throws {
@@ -35,9 +37,10 @@ struct ReviewRequest: Codable, Identifiable {
         self.riskAction = try container.decodeIfPresent(String.self, forKey: .riskAction)
         self.riskDescription = try container.decodeIfPresent(String.self, forKey: .riskDescription)
         self.claudeDescription = try container.decodeIfPresent(String.self, forKey: .claudeDescription)
+        self.context = try container.decodeIfPresent(String.self, forKey: .context)
     }
 
-    init(id: UUID = UUID(), toolName: String, toolInput: [String: AnyCodable], summary: String, timestamp: Date = Date(), riskLevel: String? = nil, riskAction: String? = nil, riskDescription: String? = nil, claudeDescription: String? = nil) {
+    init(id: UUID = UUID(), toolName: String, toolInput: [String: AnyCodable], summary: String, timestamp: Date = Date(), riskLevel: String? = nil, riskAction: String? = nil, riskDescription: String? = nil, claudeDescription: String? = nil, context: String? = nil) {
         self.id = id
         self.toolName = toolName
         self.toolInput = toolInput
@@ -47,6 +50,7 @@ struct ReviewRequest: Codable, Identifiable {
         self.riskAction = riskAction
         self.riskDescription = riskDescription
         self.claudeDescription = claudeDescription
+        self.context = context
     }
 }
 

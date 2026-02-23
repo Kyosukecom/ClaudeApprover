@@ -279,6 +279,136 @@ def translate_claude_description(claude_desc: str) -> str | None:
     return _ollama_generate(prompt, max_tokens=60)
 
 
+def gather_context(tool_name: str, tool_input: dict) -> str:
+    """Gather contextual info about WHAT the command will affect."""
+    if tool_name != "Bash":
+        return ""
+    cmd = tool_input.get("command", "")
+    try:
+        if re.search(r"\bgit\s+push\b", cmd):
+            return _git_push_context(cmd)
+        if re.search(r"\brm\s+", cmd):
+            return _rm_context(cmd)
+        if re.search(r"\bssh\b", cmd):
+            return _ssh_context(cmd)
+        if re.search(r"\bgit\s+reset\s+--hard", cmd):
+            return _git_reset_context()
+        if re.search(r"\bgit\s+branch\s+-D", cmd):
+            return _git_branch_delete_context(cmd)
+    except Exception:
+        pass
+    return ""
+
+
+def _run_git(args: list[str], timeout: float = 3) -> str:
+    """Run a git command and return stdout, or empty string on failure."""
+    try:
+        result = subprocess.run(
+            ["git"] + args, capture_output=True, text=True, timeout=timeout
+        )
+        return result.stdout.strip() if result.returncode == 0 else ""
+    except Exception:
+        return ""
+
+
+def _git_push_context(cmd: str) -> str:
+    """What commits would be pushed?"""
+    # Figure out branch
+    branch = _run_git(["rev-parse", "--abbrev-ref", "HEAD"]) or "main"
+    # Find remote tracking branch
+    remote_branch = _run_git(["rev-parse", "--abbrev-ref", f"@{{upstream}}"]) or f"origin/{branch}"
+    # Commits ahead of remote
+    log = _run_git(["log", "--oneline", f"{remote_branch}..HEAD", "--max-count=10"])
+    if not log:
+        return f"ブランチ: {branch}（プッシュする新しいコミットはありません）"
+    commit_count = len(log.strip().splitlines())
+    # Files changed
+    stat = _run_git(["diff", "--stat", f"{remote_branch}..HEAD"])
+    stat_summary = stat.strip().splitlines()[-1] if stat.strip() else ""
+    lines = [f"ブランチ: {branch} → {remote_branch}"]
+    lines.append(f"プッシュするコミット ({commit_count}件):")
+    for line in log.strip().splitlines()[:5]:
+        lines.append(f"  {line}")
+    if commit_count > 5:
+        lines.append(f"  ... 他 {commit_count - 5}件")
+    if stat_summary:
+        lines.append(f"変更: {stat_summary}")
+    return "\n".join(lines)
+
+
+def _rm_context(cmd: str) -> str:
+    """What files/dirs will be deleted?"""
+    # Extract paths from rm command (skip flags)
+    parts = cmd.split()
+    targets = [p for p in parts[1:] if not p.startswith("-")]
+    if not targets:
+        return ""
+    lines = ["削除対象:"]
+    for t in targets[:5]:
+        expanded = os.path.expanduser(t)
+        if os.path.isdir(expanded):
+            # Count files inside
+            try:
+                count = sum(len(files) for _, _, files in os.walk(expanded))
+                lines.append(f"  📁 {t} ({count}ファイル)")
+            except Exception:
+                lines.append(f"  📁 {t}")
+        elif os.path.exists(expanded):
+            lines.append(f"  📄 {t}")
+        else:
+            lines.append(f"  ❓ {t} (存在しない)")
+    if len(targets) > 5:
+        lines.append(f"  ... 他 {len(targets) - 5}件")
+    return "\n".join(lines)
+
+
+def _ssh_context(cmd: str) -> str:
+    """Extract connection target."""
+    # Look for user@host pattern
+    m = re.search(r"(\S+@\S+)", cmd)
+    if m:
+        return f"接続先: {m.group(1)}"
+    return ""
+
+
+def _git_reset_context() -> str:
+    """Show what uncommitted changes would be lost."""
+    status = _run_git(["status", "--short"])
+    if not status:
+        return "変更なし（影響は少ない）"
+    lines = status.strip().splitlines()
+    result = [f"失われる変更 ({len(lines)}ファイル):"]
+    for line in lines[:8]:
+        result.append(f"  {line}")
+    if len(lines) > 8:
+        result.append(f"  ... 他 {len(lines) - 8}件")
+    return "\n".join(result)
+
+
+def _git_branch_delete_context(cmd: str) -> str:
+    """Show info about branch being deleted."""
+    parts = cmd.split()
+    # Find branch name (after -D flag)
+    branch_name = ""
+    for i, p in enumerate(parts):
+        if p == "-D" and i + 1 < len(parts):
+            branch_name = parts[i + 1]
+            break
+    if not branch_name:
+        return ""
+    # Check if merged
+    merged = _run_git(["branch", "--merged", "main"])
+    is_merged = branch_name in merged if merged else False
+    log = _run_git(["log", "--oneline", f"main..{branch_name}", "--max-count=5"])
+    lines = [f"ブランチ: {branch_name}"]
+    lines.append(f"mainにマージ済み: {'はい' if is_merged else 'いいえ ⚠️'}")
+    if log:
+        lines.append("未マージのコミット:")
+        for line in log.strip().splitlines():
+            lines.append(f"  {line}")
+    return "\n".join(lines)
+
+
 def summarize_fallback(tool_name: str, tool_input: dict) -> str:
     if tool_name == "Bash":
         cmd = tool_input.get("command", "")
@@ -331,7 +461,7 @@ def _ensure_approver_running() -> bool:
 def notify_approver(
     tool_name: str, tool_input: dict, summary: str,
     risk_level: str, risk_action: str, risk_description: str,
-    claude_description: str,
+    claude_description: str, context: str,
 ) -> bool:
     """Send notification to ClaudeApprover (fire-and-forget)."""
     payload = json.dumps({
@@ -342,6 +472,7 @@ def notify_approver(
         "risk_action": risk_action,
         "risk_description": risk_description,
         "claude_description": claude_description,
+        "context": context,
     }).encode()
     req = urllib.request.Request(APPROVER_URL, data=payload, headers={"Content-Type": "application/json"})
     try:
@@ -380,8 +511,11 @@ def main():
     # Step 4: Notify (medium not-allowed / high always)
     _ensure_approver_running()
 
-    # Summary = risk_description (pre-written non-engineer Japanese)
+    # Summary = risk_description (pre-written Japanese)
     summary = risk_description or summarize_fallback(tool_name, tool_input)
+
+    # Gather context: what exactly will be affected
+    context = gather_context(tool_name, tool_input)
 
     # Translate Claude's English description to Japanese (if available)
     claude_desc_ja = ""
@@ -391,7 +525,7 @@ def main():
     notify_approver(
         tool_name, tool_input, summary,
         risk_level, risk_action, risk_description,
-        claude_desc_ja,
+        claude_desc_ja, context,
     )
     sys.exit(0)
 
