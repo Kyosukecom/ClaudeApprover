@@ -33,7 +33,7 @@ final class ReviewManager {
             shouldShowPopover = true
             let itemId = item.id
             Task {
-                try? await Task.sleep(for: .seconds(10))
+                try? await Task.sleep(for: .seconds(5))
                 await MainActor.run { self.dismiss(id: itemId) }
             }
         } else {
