@@ -563,16 +563,15 @@ def main():
     # Step 1: Classify risk
     risk_level, risk_action, risk_description = classify_risk(tool_name, tool_input)
 
-    # Step 2: Low risk → always skip (safe operations, no notification needed)
-    if risk_level == "low":
-        sys.exit(0)
-
-    # Step 3: Medium risk + allow-listed → skip
-    if risk_level == "medium" and is_allowed_by_settings(tool_name, tool_input):
-        sys.exit(0)
-
-    # Step 4: Medium (not allow-listed) / High → notify
+    # Step 2: High risk → always notify immediately
+    # Step 3: Medium/Low → send as "pending" (Swift app delays display,
+    #         cancels if PostToolUse arrives quickly = auto-executed)
     _ensure_approver_running()
+
+    # For low risk, generate action name from command
+    if risk_level == "low":
+        risk_action = risk_action or _low_risk_action(tool_name, tool_input)
+        risk_description = ""
 
     summary = risk_description or summarize_fallback(tool_name, tool_input)
     context = gather_context(tool_name, tool_input)
