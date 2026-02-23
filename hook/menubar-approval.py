@@ -87,6 +87,11 @@ HIGH_RISK_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     # Package publishing
     (re.compile(r"\bnpm\s+publish\b"), "npmに公開",
      "パッケージをnpmレジストリに公開します。誰でもインストール可能になります。"),
+    # Supabase destructive
+    (re.compile(r"\bsupabase\s+db\s+reset\b"), "Supabase DBリセット",
+     "データベースを全て削除して再作成します。全データが消えます。"),
+    (re.compile(r"\bsupabase\s+migration\s+repair\b"), "マイグレーション修復",
+     "マイグレーション履歴を強制修正します。DBの整合性に影響します。"),
 ]
 
 # Medium risk: state-modifying but recoverable
@@ -111,6 +116,15 @@ MEDIUM_RISK_PATTERNS: list[tuple[re.Pattern, str, str]] = [
      "コンテナを操作します。動作中のサービスに影響する場合があります。"),
     (re.compile(r"\bkubectl\b"), "Kubernetes操作",
      "K8sクラスタを操作します。本番環境に影響する可能性があります。"),
+    # Supabase state-changing
+    (re.compile(r"\bsupabase\s+db\s+push\b"), "Supabase DBマイグレーション適用",
+     "マイグレーションをリモートDBに適用します。テーブル構造が変わります。"),
+    (re.compile(r"\bsupabase\s+migration\s+up\b"), "Supabase マイグレーション実行",
+     "マイグレーションを実行します。DBのテーブル構造が変わります。"),
+    (re.compile(r"\bsupabase\s+functions\s+deploy\b"), "Supabase Edge Functions デプロイ",
+     "Edge Functionsを本番にデプロイします。"),
+    (re.compile(r"\bsupabase\s+secrets\s+set\b"), "Supabase シークレット設定",
+     "本番環境の環境変数（APIキー等）を変更します。"),
     # Network requests sending data
     (re.compile(r"\bcurl\s+.*-X\s*(POST|PUT|DELETE|PATCH)"), "APIリクエスト送信",
      "外部APIにデータを送信（POST/PUT/DELETE等）します。"),
