@@ -1,19 +1,25 @@
 #!/usr/bin/env python3
 """
 Claude Code Notification hook: shows task completion in ClaudeApprover.
-Only fires for genuine "Claude finished, waiting for input" events.
-Skips permission_prompt (already handled by PreToolUse hook).
 """
 import json
 import sys
 import urllib.request
 
 APPROVER_URL = "http://localhost:19482/api/notify"
+LOG_FILE = "/tmp/claude-notify-debug.log"
 
-# Notification types to IGNORE (handled elsewhere or not useful)
-IGNORE_TYPES = {
-    "permission_prompt",  # Handled by PreToolUse hook
-    "auth_success",       # Login success, not interesting
+# Only these types trigger a "done" notification
+SHOW_TYPES = {
+    "task_complete",
+    "stop",
+    "",  # Some completion events may have empty type
+}
+
+# Definitely skip these
+SKIP_TYPES = {
+    "permission_prompt",
+    "auth_success",
 }
 
 
@@ -28,15 +34,23 @@ def main():
     title = hook_input.get("title", "")
     session_id = hook_input.get("session_id", "")
 
-    # Skip ignored notification types
-    if notification_type in IGNORE_TYPES:
+    # Log ALL notifications for debugging
+    with open(LOG_FILE, "a") as f:
+        f.write(json.dumps({
+            "type": notification_type,
+            "title": title,
+            "message": message[:100],
+        }, ensure_ascii=False) + "\n")
+
+    # Skip known non-completion types
+    if notification_type in SKIP_TYPES:
         sys.exit(0)
 
     # Skip empty messages
     if not message.strip():
         sys.exit(0)
 
-    tool_use_id = hook_input.get("tool_use_id", "") or f"notif-{session_id}-{notification_type}"
+    tool_use_id = hook_input.get("tool_use_id", "") or f"notif-{session_id}"
 
     payload = json.dumps({
         "tool_name": "Notification",
