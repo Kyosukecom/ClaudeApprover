@@ -563,21 +563,16 @@ def main():
     # Step 1: Classify risk
     risk_level, risk_action, risk_description = classify_risk(tool_name, tool_input)
 
-    # Step 2: Check if allow-listed (auto-approved by Claude Code, no user interaction)
-    is_allowed = is_allowed_by_settings(tool_name, tool_input)
-
-    # Step 3: Allow-listed → skip (user won't see approval prompt, so no notification needed)
-    if is_allowed and risk_level != "high":
+    # Step 2: Low risk → always skip (safe operations, no notification needed)
+    if risk_level == "low":
         sys.exit(0)
 
-    # Step 4: Not allow-listed → user is being asked to approve in terminal
-    # Notify regardless of risk level (low=green, medium=orange, high=red)
-    _ensure_approver_running()
+    # Step 3: Medium risk + allow-listed → skip
+    if risk_level == "medium" and is_allowed_by_settings(tool_name, tool_input):
+        sys.exit(0)
 
-    # For low risk, generate a simple action name from the command
-    if risk_level == "low":
-        risk_action = risk_action or _low_risk_action(tool_name, tool_input)
-        risk_description = ""  # No risk warning needed for low risk
+    # Step 4: Medium (not allow-listed) / High → notify
+    _ensure_approver_running()
 
     summary = risk_description or summarize_fallback(tool_name, tool_input)
     context = gather_context(tool_name, tool_input)
