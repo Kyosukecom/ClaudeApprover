@@ -92,6 +92,17 @@ HIGH_RISK_PATTERNS: list[tuple[re.Pattern, str, str]] = [
      "データベースを全て削除して再作成します。全データが消えます。"),
     (re.compile(r"\bsupabase\s+migration\s+repair\b"), "マイグレーション修復",
      "マイグレーション履歴を強制修正します。DBの整合性に影響します。"),
+    (re.compile(r"\bsupabase\s+db\s+push\s+.*--include-all\b"), "Supabase 本番DBに全マイグレーション適用",
+     "全マイグレーションを本番DBに適用します。CIと同等の操作です。"),
+    (re.compile(r"\bsupabase\s+db\s+push\s+.*--linked\b"), "Supabase リモートDBにマイグレーション適用",
+     "リンク先の本番/ステージングDBにマイグレーションを適用します。"),
+    # GitHub PR/Issue destructive
+    (re.compile(r"\bgh\s+pr\s+close\b"), "PRをクローズ",
+     "プルリクエストを閉じます。マージされずに閉じられます。"),
+    (re.compile(r"\bgh\s+issue\s+close\b"), "Issueをクローズ",
+     "Issueを閉じます。"),
+    (re.compile(r"\bgh\s+repo\s+delete\b"), "リポジトリ削除",
+     "GitHubリポジトリを完全に削除します。復元できません。"),
 ]
 
 # Medium risk: state-modifying but recoverable
@@ -118,13 +129,29 @@ MEDIUM_RISK_PATTERNS: list[tuple[re.Pattern, str, str]] = [
      "K8sクラスタを操作します。本番環境に影響する可能性があります。"),
     # Supabase state-changing
     (re.compile(r"\bsupabase\s+db\s+push\b"), "Supabase DBマイグレーション適用",
-     "マイグレーションをリモートDBに適用します。テーブル構造が変わります。"),
-    (re.compile(r"\bsupabase\s+migration\s+up\b"), "Supabase マイグレーション実行",
-     "マイグレーションを実行します。DBのテーブル構造が変わります。"),
+     "マイグレーションをDBに適用します。テーブル構造が変わります。"),
+    (re.compile(r"\bsupabase\s+migration\s+(up|new)\b"), "Supabase マイグレーション操作",
+     "マイグレーションを実行/作成します。DBスキーマに影響します。"),
     (re.compile(r"\bsupabase\s+functions\s+deploy\b"), "Supabase Edge Functions デプロイ",
      "Edge Functionsを本番にデプロイします。"),
-    (re.compile(r"\bsupabase\s+secrets\s+set\b"), "Supabase シークレット設定",
+    (re.compile(r"\bsupabase\s+secrets\s+(set|unset)\b"), "Supabase シークレット変更",
      "本番環境の環境変数（APIキー等）を変更します。"),
+    (re.compile(r"\bsupabase\s+link\b"), "Supabase プロジェクトリンク",
+     "CLIの接続先プロジェクトを変更します。以降のコマンドが別のDBを対象にします。"),
+    # GitHub state-changing
+    (re.compile(r"\bgh\s+pr\s+create\b"), "PR作成",
+     "プルリクエストを作成します。レビュー対象になります。"),
+    (re.compile(r"\bgh\s+pr\s+edit\b"), "PR編集",
+     "プルリクエストのタイトル・本文・ラベル等を変更します。"),
+    (re.compile(r"\bgh\s+issue\s+create\b"), "Issue作成",
+     "GitHubにIssueを作成します。"),
+    (re.compile(r"\bgh\s+release\s+create\b"), "リリース作成",
+     "GitHubリリースを作成します。タグが作られます。"),
+    # Vercel
+    (re.compile(r"\bvercel\s+env\b"), "Vercel環境変数操作",
+     "Vercelの環境変数を変更します。本番のAPIキー等に影響します。"),
+    (re.compile(r"\bvercel\s+rm\b"), "Vercelデプロイメント削除",
+     "Vercelのデプロイメントを削除します。"),
     # Network requests sending data
     (re.compile(r"\bcurl\s+.*-X\s*(POST|PUT|DELETE|PATCH)"), "APIリクエスト送信",
      "外部APIにデータを送信（POST/PUT/DELETE等）します。"),
