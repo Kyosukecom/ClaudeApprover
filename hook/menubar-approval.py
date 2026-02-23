@@ -182,8 +182,19 @@ def classify_risk(tool_name: str, tool_input: dict) -> tuple[str, str, str]:
         # Everything else is low risk — normal dev operations
         return ("low", "", "")
 
-    # Edit/Write are normal Claude Code operations — always low risk
-    return ("low", "", "")
+    if tool_name in ("Edit", "Write"):
+        return ("low", "", "")
+
+    if tool_name == "WebFetch":
+        url = tool_input.get("url", "")
+        return ("low", f"Webページ取得: {url[:50]}", "")
+
+    if tool_name == "WebSearch":
+        query = tool_input.get("query", "")
+        return ("low", f"Web検索: {query[:50]}", "")
+
+    # Other tools (Read, Glob, Grep, Task, etc.) — low risk
+    return ("low", f"{tool_name}", "")
 
 
 # ---------------------------------------------------------------------------
@@ -464,6 +475,12 @@ def _low_risk_action(tool_name: str, tool_input: dict) -> str:
         cmd = tool_input.get("command", "")
         first_word = cmd.split()[0] if cmd.split() else cmd
         return f"コマンド実行: {first_word}"
+    if tool_name == "WebFetch":
+        url = tool_input.get("url", "")
+        return f"Webページ取得: {url[:50]}"
+    if tool_name == "WebSearch":
+        query = tool_input.get("query", "")
+        return f"Web検索: {query[:50]}"
     return f"{tool_name}"
 
 
