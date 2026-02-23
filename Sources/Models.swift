@@ -9,6 +9,7 @@ struct ReviewRequest: Codable, Identifiable {
     let riskLevel: String?
     let riskAction: String?
     let riskDescription: String?
+    let claudeDescription: String?
 
     var isHighRisk: Bool { riskLevel == "high" }
     var isMediumRisk: Bool { riskLevel == "medium" }
@@ -20,6 +21,7 @@ struct ReviewRequest: Codable, Identifiable {
         case riskLevel = "risk_level"
         case riskAction = "risk_action"
         case riskDescription = "risk_description"
+        case claudeDescription = "claude_description"
     }
 
     init(from decoder: Decoder) throws {
@@ -32,9 +34,10 @@ struct ReviewRequest: Codable, Identifiable {
         self.riskLevel = try container.decodeIfPresent(String.self, forKey: .riskLevel)
         self.riskAction = try container.decodeIfPresent(String.self, forKey: .riskAction)
         self.riskDescription = try container.decodeIfPresent(String.self, forKey: .riskDescription)
+        self.claudeDescription = try container.decodeIfPresent(String.self, forKey: .claudeDescription)
     }
 
-    init(id: UUID = UUID(), toolName: String, toolInput: [String: AnyCodable], summary: String, timestamp: Date = Date(), riskLevel: String? = nil, riskAction: String? = nil, riskDescription: String? = nil) {
+    init(id: UUID = UUID(), toolName: String, toolInput: [String: AnyCodable], summary: String, timestamp: Date = Date(), riskLevel: String? = nil, riskAction: String? = nil, riskDescription: String? = nil, claudeDescription: String? = nil) {
         self.id = id
         self.toolName = toolName
         self.toolInput = toolInput
@@ -43,21 +46,7 @@ struct ReviewRequest: Codable, Identifiable {
         self.riskLevel = riskLevel
         self.riskAction = riskAction
         self.riskDescription = riskDescription
-    }
-
-    /// Non-engineer friendly description of what this command does and its risk
-    var humanDescription: String {
-        var parts: [String] = []
-        if let action = riskAction, !action.isEmpty {
-            parts.append(action)
-        }
-        if let desc = riskDescription, !desc.isEmpty {
-            parts.append(desc)
-        }
-        if parts.isEmpty {
-            return summary
-        }
-        return parts.joined(separator: " — ")
+        self.claudeDescription = claudeDescription
     }
 }
 

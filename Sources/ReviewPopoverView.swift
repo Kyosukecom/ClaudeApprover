@@ -45,7 +45,25 @@ struct NotificationItemView: View {
                 riskBadge
             }
 
-            // Human-friendly risk explanation
+            // Claude's intent — what it's trying to do and why
+            if let claudeDesc = item.request.claudeDescription, !claudeDesc.isEmpty {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "brain")
+                        .font(.caption)
+                        .foregroundStyle(.purple)
+                        .frame(width: 14)
+                    Text(claudeDesc)
+                        .font(.callout)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.purple.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+
+            // Risk explanation
             if let desc = item.request.riskDescription, !desc.isEmpty {
                 HStack(alignment: .top, spacing: 6) {
                     Image(systemName: riskExplainIcon)
@@ -63,7 +81,7 @@ struct NotificationItemView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
-            // Command detail
+            // Command detail (collapsed)
             Text(toolDetail)
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(.tertiary)
