@@ -450,6 +450,23 @@ def _git_branch_delete_context(cmd: str) -> str:
     return "\n".join(lines)
 
 
+def _low_risk_action(tool_name: str, tool_input: dict) -> str:
+    """Generate a short action name for low-risk operations."""
+    if tool_name == "Edit":
+        path = tool_input.get("file_path", "")
+        name = path.rsplit("/", 1)[-1] if "/" in path else path
+        return f"ファイル編集: {name}"
+    if tool_name == "Write":
+        path = tool_input.get("file_path", "")
+        name = path.rsplit("/", 1)[-1] if "/" in path else path
+        return f"ファイル作成: {name}"
+    if tool_name == "Bash":
+        cmd = tool_input.get("command", "")
+        first_word = cmd.split()[0] if cmd.split() else cmd
+        return f"コマンド実行: {first_word}"
+    return f"{tool_name}"
+
+
 def summarize_fallback(tool_name: str, tool_input: dict) -> str:
     if tool_name == "Bash":
         cmd = tool_input.get("command", "")
@@ -546,24 +563,25 @@ def main():
     # Step 1: Classify risk
     risk_level, risk_action, risk_description = classify_risk(tool_name, tool_input)
 
-    # Step 2: Low risk → no notification (normal dev operations)
-    if risk_level == "low":
+    # Step 2: Check if allow-listed (auto-approved by Claude Code, no user interaction)
+    is_allowed = is_allowed_by_settings(tool_name, tool_input)
+
+    # Step 3: Allow-listed → skip (user won't see approval prompt, so no notification needed)
+    if is_allowed and risk_level != "high":
         sys.exit(0)
 
-    # Step 3: Medium risk + allow-listed → no notification
-    if risk_level == "medium" and is_allowed_by_settings(tool_name, tool_input):
-        sys.exit(0)
-
-    # Step 4: Notify (medium not-allowed / high always)
+    # Step 4: Not allow-listed → user is being asked to approve in terminal
+    # Notify regardless of risk level (low=green, medium=orange, high=red)
     _ensure_approver_running()
 
-    # Summary = risk_description (pre-written Japanese)
-    summary = risk_description or summarize_fallback(tool_name, tool_input)
+    # For low risk, generate a simple action name from the command
+    if risk_level == "low":
+        risk_action = risk_action or _low_risk_action(tool_name, tool_input)
+        risk_description = ""  # No risk warning needed for low risk
 
-    # Gather context: what exactly will be affected
+    summary = risk_description or summarize_fallback(tool_name, tool_input)
     context = gather_context(tool_name, tool_input)
 
-    # Translate Claude's English description to Japanese (if available)
     claude_desc_ja = ""
     if claude_description:
         claude_desc_ja = translate_claude_description(claude_description) or claude_description

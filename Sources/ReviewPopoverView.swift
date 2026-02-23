@@ -128,7 +128,7 @@ struct CompactNotificationView: View {
                     manager.dismiss(id: item.id)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(item.request.isHighRisk ? .red : .accentColor)
+                .tint(item.request.isDone ? .blue : (item.request.isHighRisk ? .red : (isLowRisk ? .green : .accentColor)))
                 .controlSize(.mini)
             }
         }
@@ -138,9 +138,20 @@ struct CompactNotificationView: View {
 
     // MARK: - Helpers
 
+    private var isLowRisk: Bool {
+        !item.request.isHighRisk && !item.request.isMediumRisk && !item.request.isDone
+    }
+
     @ViewBuilder
     private var riskBadge: some View {
-        if item.request.isHighRisk {
+        if item.request.isDone {
+            Text("完了")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(.blue))
+        } else if item.request.isHighRisk {
             Text("高")
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.white)
@@ -154,16 +165,25 @@ struct CompactNotificationView: View {
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background(Capsule().fill(.orange))
+        } else {
+            Text("安全")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(.green))
         }
     }
 
     private var riskColor: Color {
+        if item.request.isDone { return .blue }
         if item.request.isHighRisk { return .red }
         if item.request.isMediumRisk { return .orange }
-        return .secondary
+        return .green
     }
 
     private var iconName: String {
+        if item.request.isDone { return "checkmark.circle.fill" }
         switch item.request.toolName {
         case "Bash": return "terminal"
         case "Write": return "doc.badge.plus"

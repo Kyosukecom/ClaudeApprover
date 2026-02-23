@@ -16,6 +16,17 @@ final class ReviewManager {
         let item = NotificationItem(request: request)
         notifications.append(item)
         shouldShowPopover = true
+
+        // "done" notifications auto-dismiss after 10 seconds
+        if request.isDone {
+            let itemId = item.id
+            Task {
+                try? await Task.sleep(for: .seconds(10))
+                await MainActor.run {
+                    self.dismiss(id: itemId)
+                }
+            }
+        }
     }
 
     /// Dismiss by tool_use_id (from PostToolUse hook)

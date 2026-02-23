@@ -16,6 +16,7 @@ struct ReviewRequest: Codable, Identifiable {
 
     var isHighRisk: Bool { riskLevel == "high" }
     var isMediumRisk: Bool { riskLevel == "medium" }
+    var isDone: Bool { riskLevel == "done" }
 
     enum CodingKeys: String, CodingKey {
         case toolName = "tool_name"
