@@ -92,6 +92,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.animationBehavior = .utilityWindow
+        // Show on ALL desktops/spaces so it follows the user
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         let hostView = NSHostingView(rootView: ReviewPopoverView(manager: manager))
         panel.contentView = hostView

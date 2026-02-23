@@ -22,7 +22,7 @@ APPROVER_HEALTH_URL = "http://localhost:19482/api/health"
 APPROVER_BINARY = os.path.expanduser("~/Projects/ClaudeApprover/.build/debug/ClaudeApprover")
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "qwen2.5:1.5b"
-OLLAMA_TIMEOUT = 3
+OLLAMA_TIMEOUT = 8
 
 # ---------------------------------------------------------------------------
 # Risk classification patterns (pre-compiled at module level)
@@ -32,57 +32,92 @@ OLLAMA_TIMEOUT = 3
 # These ALWAYS show a notification, even if allow-listed
 HIGH_RISK_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     # Recursive/force deletion
-    (re.compile(r"\brm\s+-[^\s]*r"), "フォルダごと削除", "指定したフォルダとその中身が全て消えます。復元できません。"),
-    (re.compile(r"\brm\s+"), "ファイル削除", "指定したファイルが消えます。ゴミ箱には入りません。"),
-    (re.compile(r"\bfind\b.*-delete\b"), "一括削除", "条件に合うファイルをまとめて削除します。"),
-    (re.compile(r"\btruncate\b"), "ファイル内容消去", "ファイルの中身が空になります。"),
+    (re.compile(r"\brm\s+-[^\s]*r"), "フォルダごと削除",
+     "ディレクトリとその中のファイルを全て削除します。ゴミ箱に入らないので復元できません。"),
+    (re.compile(r"\brm\s+"), "ファイル削除",
+     "ファイルを直接削除します。ゴミ箱に入らないので復元できません。"),
+    (re.compile(r"\bfind\b.*-delete\b"), "ファイル一括削除",
+     "条件に一致するファイルをまとめて削除します。"),
+    (re.compile(r"\btruncate\b"), "ファイル内容の消去",
+     "ファイルの中身を空にします。ファイル自体は残りますが内容は消えます。"),
     # Git: pushing/destroying history
-    (re.compile(r"\bgit\s+push\s+--force"), "Git 強制プッシュ", "リモートの履歴を上書きします。他の人の作業が消える可能性があります。"),
-    (re.compile(r"\bgit\s+push\b"), "Git プッシュ", "コードをサーバー（GitHub等）に送信します。チーム全員に影響します。"),
-    (re.compile(r"\bgit\s+reset\s+--hard"), "Git 変更破棄", "まだ保存していない編集内容が全て消えます。"),
-    (re.compile(r"\bgit\s+clean\b"), "Git 未追跡ファイル削除", "Gitで管理していないファイルを削除します。"),
-    (re.compile(r"\bgit\s+checkout\s+\.\s*$"), "Git 編集取り消し", "現在の編集内容を全て元に戻します。"),
-    (re.compile(r"\bgit\s+restore\s+\.\s*$"), "Git 編集取り消し", "現在の編集内容を全て元に戻します。"),
-    (re.compile(r"\bgit\s+branch\s+-D\b"), "ブランチ強制削除", "ブランチを完全に削除します。マージされていない変更も消えます。"),
-    (re.compile(r"\bgit\s+stash\s+clear\b"), "一時保存を全削除", "一時保存していた作業内容が全て消えます。"),
+    (re.compile(r"\bgit\s+push\s+--force"), "リモートに強制プッシュ",
+     "リモートリポジトリの履歴を上書きします。他のメンバーの変更が消える可能性があります。"),
+    (re.compile(r"\bgit\s+push\b"), "リモートにプッシュ",
+     "ローカルの変更をGitHubなどのリモートリポジトリにアップロードします。チーム全員のコードに反映されます。"),
+    (re.compile(r"\bgit\s+reset\s+--hard"), "変更を全て破棄",
+     "コミットしていない作業中の変更が全て消えます。最後のコミット状態に戻ります。"),
+    (re.compile(r"\bgit\s+clean\b"), "未追跡ファイル削除",
+     "gitで管理していないファイル（新規作成したがgit addしていないもの等）を削除します。"),
+    (re.compile(r"\bgit\s+checkout\s+\.\s*$"), "作業ツリーの変更を破棄",
+     "編集中のファイルを全て最後のコミット状態に戻します。未コミットの変更が消えます。"),
+    (re.compile(r"\bgit\s+restore\s+\.\s*$"), "作業ツリーの変更を破棄",
+     "編集中のファイルを全て最後のコミット状態に戻します。未コミットの変更が消えます。"),
+    (re.compile(r"\bgit\s+branch\s+-D\b"), "ブランチ強制削除",
+     "ブランチを削除します。マージされていない変更も消えます。"),
+    (re.compile(r"\bgit\s+stash\s+clear\b"), "stash全削除",
+     "一時退避していた作業内容が全て消えます。"),
     # GitHub CLI merge
-    (re.compile(r"\bgh\s+pr\s+merge\b"), "PR マージ", "プルリクエストを本番ブランチに統合します。"),
+    (re.compile(r"\bgh\s+pr\s+merge\b"), "PRをマージ",
+     "プルリクエストをメインブランチに統合します。本番環境に反映される可能性があります。"),
     # System admin
-    (re.compile(r"\bsudo\b"), "管理者権限で実行", "パソコン全体に影響を与える操作です。慎重に確認してください。"),
-    (re.compile(r"\breboot\b"), "パソコン再起動", "パソコンが再起動されます。作業中のものは失われます。"),
-    (re.compile(r"\bshutdown\b"), "パソコン停止", "パソコンがシャットダウンされます。"),
+    (re.compile(r"\bsudo\b"), "管理者権限で実行",
+     "root権限でコマンドを実行します。システム全体に影響する操作です。"),
+    (re.compile(r"\breboot\b"), "パソコンの再起動",
+     "システムが再起動されます。保存していない作業は失われます。"),
+    (re.compile(r"\bshutdown\b"), "シャットダウン",
+     "システムが停止します。"),
     # Remote script execution
-    (re.compile(r"\bcurl\b.*\|\s*(ba)?sh\b"), "外部スクリプト実行", "インターネットからダウンロードしたプログラムをそのまま実行します。安全性が不明です。"),
-    (re.compile(r"\bwget\b.*\|\s*(ba)?sh\b"), "外部スクリプト実行", "インターネットからダウンロードしたプログラムをそのまま実行します。"),
+    (re.compile(r"\bcurl\b.*\|\s*(ba)?sh\b"), "ネットからスクリプトを直接実行",
+     "インターネットからダウンロードしたスクリプトをそのまま実行します。安全性が保証されません。"),
+    (re.compile(r"\bwget\b.*\|\s*(ba)?sh\b"), "ネットからスクリプトを直接実行",
+     "インターネットからダウンロードしたスクリプトをそのまま実行します。"),
     # Remote access
-    (re.compile(r"\bssh\b"), "リモートサーバー接続", "別のサーバーに接続して操作を行います。"),
-    (re.compile(r"\bscp\b"), "リモートファイル転送", "別のサーバーとファイルをやり取りします。"),
-    (re.compile(r"\brsync\b"), "リモート同期", "別のサーバーとファイルを同期します。"),
+    (re.compile(r"\bssh\b"), "リモートサーバーに接続",
+     "SSH経由で別のサーバーに接続します。接続先で操作を行えます。"),
+    (re.compile(r"\bscp\b"), "リモートとファイル転送",
+     "SSH経由で別のサーバーとファイルをやり取りします。"),
+    (re.compile(r"\brsync\b"), "リモートとファイル同期",
+     "ファイルをリモートと同期します。同期先のファイルが上書きされることがあります。"),
     # Dangerous utilities
-    (re.compile(r"\bdd\b"), "ディスク直接書き込み", "ハードディスクに直接データを書き込みます。誤操作でデータが消えます。"),
-    (re.compile(r"\bcrontab\b"), "定期実行設定", "パソコンで定期的にプログラムを実行する設定を変更します。"),
+    (re.compile(r"\bdd\b"), "ディスク直接書き込み",
+     "記憶装置に直接データを書き込みます。誤操作でデータが消えて復旧不可になります。"),
+    (re.compile(r"\bcrontab\b"), "定期実行スケジュール変更",
+     "cronジョブ（自動実行スケジュール）を変更します。"),
     # Package publishing
-    (re.compile(r"\bnpm\s+publish\b"), "パッケージ公開", "作成したプログラムをインターネット上に公開します。"),
+    (re.compile(r"\bnpm\s+publish\b"), "npmに公開",
+     "パッケージをnpmレジストリに公開します。誰でもインストール可能になります。"),
 ]
 
-# Medium risk: state-modifying but recoverable / expected dev operations
+# Medium risk: state-modifying but recoverable
 # Only notified if NOT in the allow-list
 MEDIUM_RISK_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     # Deployments
-    (re.compile(r"\bfirebase\s+deploy\b"), "Firebase デプロイ", "ウェブサイトやAPIを本番環境に公開します。"),
-    (re.compile(r"\bvercel\b.*deploy"), "Vercel デプロイ", "ウェブサイトを本番環境に公開します。"),
-    (re.compile(r"\bgcloud\b.*deploy"), "Google Cloud デプロイ", "サービスをクラウドに公開します。"),
-    (re.compile(r"\bterraform\s+apply\b"), "インフラ変更適用", "クラウドのサーバー構成を変更します。"),
+    (re.compile(r"\bfirebase\s+deploy\b"), "Firebaseにデプロイ",
+     "本番環境にデプロイします。ユーザーに公開される変更です。"),
+    (re.compile(r"\bvercel\b.*deploy"), "Vercelにデプロイ",
+     "本番環境にデプロイします。ユーザーに公開されます。"),
+    (re.compile(r"\bgcloud\b.*deploy"), "GCPにデプロイ",
+     "Google Cloudの本番環境にデプロイします。"),
+    (re.compile(r"\bterraform\s+apply\b"), "Terraform適用",
+     "クラウドインフラの構成を変更します。稼働中のサービスに影響する可能性があります。"),
     # Database direct access
-    (re.compile(r"\bpsql\b"), "データベース操作", "PostgreSQLデータベースに直接コマンドを実行します。"),
-    (re.compile(r"\bmysql\b"), "データベース操作", "MySQLデータベースに直接コマンドを実行します。"),
-    # Docker (can affect running services)
-    (re.compile(r"\bdocker\b"), "Docker操作", "コンテナ（仮想環境）を操作します。動作中のサービスに影響する場合があります。"),
-    (re.compile(r"\bkubectl\b"), "Kubernetes操作", "本番サーバーのコンテナを操作します。"),
+    (re.compile(r"\bpsql\b"), "PostgreSQL操作",
+     "データベースに直接コマンドを実行します。データの変更・削除が可能です。"),
+    (re.compile(r"\bmysql\b"), "MySQL操作",
+     "データベースに直接コマンドを実行します。データの変更・削除が可能です。"),
+    # Docker
+    (re.compile(r"\bdocker\b"), "Docker操作",
+     "コンテナを操作します。動作中のサービスに影響する場合があります。"),
+    (re.compile(r"\bkubectl\b"), "Kubernetes操作",
+     "K8sクラスタを操作します。本番環境に影響する可能性があります。"),
     # Network requests sending data
-    (re.compile(r"\bcurl\s+.*-X\s*(POST|PUT|DELETE|PATCH)"), "API送信", "外部サービスにデータを送信します。"),
-    (re.compile(r"\bcurl\s+.*--data"), "API送信", "外部サービスにデータを送信します。"),
-    (re.compile(r"\bcurl\s+.*-d\s"), "API送信", "外部サービスにデータを送信します。"),
+    (re.compile(r"\bcurl\s+.*-X\s*(POST|PUT|DELETE|PATCH)"), "APIリクエスト送信",
+     "外部APIにデータを送信（POST/PUT/DELETE等）します。"),
+    (re.compile(r"\bcurl\s+.*--data"), "APIリクエスト送信",
+     "外部APIにデータを送信します。"),
+    (re.compile(r"\bcurl\s+.*-d\s"), "APIリクエスト送信",
+     "外部APIにデータを送信します。"),
 ]
 
 # Everything else is LOW risk (normal development flow) — no notification needed.
@@ -202,39 +237,65 @@ def read_input():
     return json.loads(raw)
 
 
-def summarize_with_ollama(tool_name: str, tool_input: dict) -> str | None:
-    """Get a Japanese summary from Ollama."""
-    detail = tool_input.get("command", "")[:200] if tool_name == "Bash" else ""
-    prompt = (
-        f"以下のコマンドを日本語で15文字以内で簡潔に要約してください。説明不要、要約のみ出力:\n"
-        f"ツール: {tool_name}\n内容: {detail}"
-    )
+def _ollama_generate(prompt: str, max_tokens: int = 80) -> str | None:
+    """Call Ollama and return the response text, or None on failure."""
     payload = json.dumps({
         "model": OLLAMA_MODEL, "prompt": prompt, "stream": False,
-        "options": {"num_predict": 30, "temperature": 0.1},
+        "options": {"num_predict": max_tokens, "temperature": 0.2},
     }).encode()
     req = urllib.request.Request(OLLAMA_URL, data=payload, headers={"Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=OLLAMA_TIMEOUT) as resp:
-            summary = json.loads(resp.read()).get("response", "").strip().strip('"\'').strip()
-            return summary if summary else None
+            text = json.loads(resp.read()).get("response", "").strip().strip('"\'').strip()
+            return text if text else None
     except Exception:
         return None
+
+
+def explain_for_non_engineer(cmd: str, claude_desc: str, risk_action: str) -> str | None:
+    """Use Ollama to generate a non-engineer friendly Japanese explanation."""
+    context = f"AIの意図: {claude_desc}\n" if claude_desc else ""
+    prompt = (
+        f"あなたはITに詳しくない人にコマンドの意味を説明するアシスタントです。\n"
+        f"以下のコマンドが何をするのか、パソコンやデータにどんな影響があるのかを、"
+        f"専門用語を使わずに日本語2文以内で簡潔に説明してください。\n\n"
+        f"{context}"
+        f"コマンド: {cmd[:150]}\n"
+        f"操作名: {risk_action}\n\n"
+        f"説明:"
+    )
+    return _ollama_generate(prompt, max_tokens=100)
+
+
+def translate_claude_description(claude_desc: str) -> str | None:
+    """Translate Claude's English description to non-engineer Japanese."""
+    if not claude_desc:
+        return None
+    prompt = (
+        f"以下の英語を、ITに詳しくない人でもわかる自然な日本語に翻訳してください。"
+        f"専門用語は避け、1文で簡潔に。翻訳のみ出力:\n\n"
+        f"{claude_desc}\n\n日本語:"
+    )
+    return _ollama_generate(prompt, max_tokens=60)
 
 
 def summarize_fallback(tool_name: str, tool_input: dict) -> str:
     if tool_name == "Bash":
         cmd = tool_input.get("command", "")
         if cmd.startswith("rm "):
-            return "ファイル/フォルダの削除"
+            return "ファイルやフォルダを削除しようとしています"
         if "git push" in cmd:
-            return "コードをサーバーに送信"
+            return "コードをサーバーに送ろうとしています"
         if "git " in cmd:
-            return "Git操作"
+            return "コードの管理操作をしています"
         if cmd.startswith("curl"):
-            return "HTTPリクエスト"
-        return "コマンド実行"
-    return f"{tool_name} 実行"
+            return "インターネットに接続しています"
+        if cmd.startswith("ssh"):
+            return "別のパソコンに接続しようとしています"
+        if cmd.startswith("sudo"):
+            return "管理者権限で操作しようとしています"
+        return "コマンドを実行しようとしています"
+    return f"{tool_name} を実行しようとしています"
 
 
 # ---------------------------------------------------------------------------
@@ -319,14 +380,18 @@ def main():
     # Step 4: Notify (medium not-allowed / high always)
     _ensure_approver_running()
 
-    summary = summarize_with_ollama(tool_name, tool_input)
-    if not summary:
-        summary = summarize_fallback(tool_name, tool_input)
+    # Summary = risk_description (pre-written non-engineer Japanese)
+    summary = risk_description or summarize_fallback(tool_name, tool_input)
+
+    # Translate Claude's English description to Japanese (if available)
+    claude_desc_ja = ""
+    if claude_description:
+        claude_desc_ja = translate_claude_description(claude_description) or claude_description
 
     notify_approver(
         tool_name, tool_input, summary,
         risk_level, risk_action, risk_description,
-        claude_description,
+        claude_desc_ja,
     )
     sys.exit(0)
 
