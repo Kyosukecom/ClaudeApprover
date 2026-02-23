@@ -173,13 +173,16 @@ def classify_risk(tool_name: str, tool_input: dict) -> tuple[str, str, str]:
     """
     if tool_name == "Bash":
         cmd = tool_input.get("command", "")
+        # Check full command for high risk (e.g. rm -rf in any position)
         for pattern, action, risk in HIGH_RISK_PATTERNS:
             if pattern.search(cmd):
                 return ("high", action, risk)
+        # For medium risk, check the main command (skip cd prefix)
+        main_cmd = _extract_main_command(cmd)
         for pattern, action, risk in MEDIUM_RISK_PATTERNS:
-            if pattern.search(cmd):
+            if pattern.search(main_cmd):
                 return ("medium", action, risk)
-        # Everything else is low risk — normal dev operations
+        # Everything else is low risk
         return ("low", "", "")
 
     if tool_name in ("Edit", "Write"):
@@ -264,16 +267,32 @@ def _match_allow_pattern(pattern: str, tool_name: str, cmd: str) -> bool:
     return cmd == pat_arg
 
 
+def _extract_main_command(cmd: str) -> str:
+    """Extract the main command from compound expressions.
+    'cd /some/path && gh issue create --title x' → 'gh issue create --title x'
+    'cd /path && cd sub && npm install' → 'npm install'
+    """
+    if "&&" not in cmd and ";" not in cmd:
+        return cmd
+    # Split on && and ; and take the last non-cd part
+    parts = re.split(r"\s*&&\s*|\s*;\s*", cmd)
+    for part in reversed(parts):
+        stripped = part.strip()
+        if stripped and not stripped.startswith("cd "):
+            return stripped
+    return cmd
+
+
 def is_allowed_by_settings(tool_name: str, tool_input: dict) -> bool:
     """Check if the tool invocation is allow-listed."""
     if tool_name != "Bash":
         return False
     cmd = tool_input.get("command", "")
-    if _has_compound_operators(cmd):
-        return False
+    # For compound commands, check the main (non-cd) command
+    main_cmd = _extract_main_command(cmd)
     for settings in _load_settings_files():
         for pattern in settings.get("permissions", {}).get("allow", []):
-            if _match_allow_pattern(pattern, tool_name, cmd):
+            if _match_allow_pattern(pattern, tool_name, main_cmd):
                 return True
     return False
 
