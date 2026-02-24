@@ -2,7 +2,7 @@ import Foundation
 import Network
 
 /// Minimal HTTP server using NWListener on port 19482.
-/// Handles POST /api/notify — adds notification and returns immediately.
+/// If another instance is already running on this port, this one exits immediately.
 final class ReviewServer {
     private var listener: NWListener?
     private let manager: ReviewManager
@@ -13,6 +13,15 @@ final class ReviewServer {
     }
 
     func start() {
+        // Check if another instance is already running
+        if isPortInUse() {
+            print("[ReviewServer] Port \(port) already in use. Another instance is running. Exiting.")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                exit(0)
+            }
+            return
+        }
+
         do {
             let params = NWParameters.tcp
             params.allowLocalEndpointReuse = true
@@ -31,13 +40,34 @@ final class ReviewServer {
             case .ready:
                 print("[ReviewServer] Listening on port \(self.port)")
             case .failed(let error):
-                print("[ReviewServer] Listener failed: \(error)")
+                print("[ReviewServer] Listener failed: \(error). Exiting.")
+                // Exit so LaunchAgent can restart us
+                exit(1)
             default:
                 break
             }
         }
 
         listener?.start(queue: .global(qos: .userInitiated))
+    }
+
+    /// Check if port is already in use by sending a health check
+    private func isPortInUse() -> Bool {
+        let url = URL(string: "http://localhost:\(port)/api/health")!
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 2
+        let semaphore = DispatchSemaphore(value: 0)
+        var isRunning = false
+
+        let task = URLSession.shared.dataTask(with: request) { data, response, _ in
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                isRunning = true
+            }
+            semaphore.signal()
+        }
+        task.resume()
+        semaphore.wait()
+        return isRunning
     }
 
     private func handleConnection(_ connection: NWConnection) {
